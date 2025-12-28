@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShortsMaster - Production Suite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.2/marked.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Adicionado Chart.js para gráficos -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #020617; color: #e2e8f0; }
+        .glass { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.5); }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #020617; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        
+        .viral-row { background: rgba(220, 38, 38, 0.1); border-left: 3px solid #dc2626; }
+        .trend-tag { background: rgba(51, 65, 85, 0.5); border: 1px solid rgba(148, 163, 184, 0.2); padding: 4px 8px; border-radius: 999px; font-size: 10px; color: #cbd5e1; white-space: nowrap; }
+        .trend-tag:hover { background: rgba(124, 58, 237, 0.2); border-color: rgba(139, 92, 246, 0.5); color: white; cursor: pointer; transition: all 0.2s; }
+
+        /* Pulsing Status */
+        @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); } 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); } }
+        .status-pulse { animation: pulse-green 2s infinite; }
+
+        /* Progress Bar Animation */
+        .progress-bar { transition: width 1s ease-in-out; }
+
+        /* Modal Styling */
+        .modal { display: none; position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); backdrop-filter: blur(4px); }
+        .modal-content { background-color: #0f172a; margin: 10% auto; padding: 20px; border: 1px solid #334155; width: 90%; max-width: 500px; border-radius: 12px; box-shadow: 0 0 20px rgba(124, 58, 237, 0.2); }
+
+        /* Toast Notification */
+        #toast { visibility: hidden; min-width: 250px; margin-left: -125px; background-color: #333; color: #fff; text-align: center; border-radius: 2px; padding: 16px; position: fixed; z-index: 100; left: 50%; bottom: 30px; font-size: 14px; border-radius: 8px; border: 1px solid #7c3aed; }
+        #toast.show { visibility: visible; -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+    </style>
+</head>
+<body class="min-h-screen p-2 md:p-6 text-sm">
+
+    <!-- Toast -->
+    <div id="toast">Notificação</div>
+
+    <!-- Config Modal -->
+    <div id="configModal" class="modal">
+        <div class="modal-content text-white">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold"><i class="fas fa-cog text-purple-500 mr-2"></i>Configurações</h2>
+                <span onclick="toggleModal('configModal')" class="cursor-pointer text-slate-400 hover:text-white font-bold text-xl">&times;</span>
+            </div>
+            
+            <label class="block text-xs font-bold mb-1 text-red-400">YouTube Data API Key v3</label>
+            <input type="password" id="inputYtKey" class="w-full bg-slate-900 border border-slate-700 rounded p-2 mb-4 text-white focus:border-red-500 outline-none">
+            
+            <div class="flex justify-end gap-2">
+                <button onclick="saveKeys()" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-bold text-xs transition">Salvar & Recarregar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header Config -->
+    <header class="max-w-screen-2xl mx-auto mb-6 glass p-4 rounded-2xl flex flex-col xl:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-br from-purple-600 to-blue-600 w-10 h-10 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/20">
+                <i class="fas fa-layer-group text-white text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-white tracking-tight">ShortsMaster AI</h1>
+                <p class="text-[10px] text-slate-400 font-mono uppercase tracking-widest">VidIQ Style Analytics v16.1</p>
+            </div>
+        </div>
+        
+        <!-- Controls -->
+        <div class="flex flex-wrap gap-4 justify-end items-center">
+            <button onclick="toggleModal('configModal')" class="text-slate-400 hover:text-white transition" title="Configurar APIs">
+                <i class="fas fa-cog text-xl"></i>
+            </button>
+            <div class="flex items-center gap-2 bg-green-500/10 border border-green-500/30 px-3 py-1 rounded-full">
+                <span class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                <span id="systemStatus" class="text-[10px] font-bold text-green-400 uppercase tracking-wide">Sistema Online</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-screen-2xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- LEFT COLUMN: METRICS & TOOLS (6 cols) -->
+        <section class="lg:col-span-6 space-y-6 flex flex-col h-full">
+            
+            <!-- 1. METRICS ANALYZER (VIDIQ STYLE) -->
+            <div class="glass p-5 rounded-2xl border-t-4 border-red-600">
+                <h3 class="font-bold text-white text-sm mb-3 flex items-center justify-between">
+                    <span><i class="fas fa-chart-bar mr-2 text-red-500"></i>Análise de Palavra-Chave (VidIQ Mode)</span>
+                    <span class="text-[9px] text-slate-500 bg-slate-900 px-2 rounded">Live Intelligence</span>
+                </h3>
+                
+                <div class="flex gap-2 mb-3">
+                    <input type="text" id="nicheInput" placeholder="Ex: Curiosidades, Minecraft, Quiz..." class="flex-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500 transition">
+                    <button onclick="analyzeNiche()" id="btnAnalyze" class="bg-slate-700 hover:bg-slate-600 text-white px-3 rounded transition"><i class="fas fa-search"></i></button>
+                </div>
+
+                <!-- Sugestões de Nicho -->
+                <div class="mb-4">
+                    <div class="flex flex-wrap gap-2">
+                        <span onclick="setNiche('Curiosidades Dark')" class="trend-tag border-purple-500/30 text-purple-300">👻 Mistério/Dark</span>
+                        <span onclick="setNiche('Quiz Futebol')" class="trend-tag border-green-500/30 text-green-300">⚽ Quiz Futebol</span>
+                        <span onclick="setNiche('Fatos Históricos')" class="trend-tag border-yellow-500/30 text-yellow-300">📜 História</span>
+                        <span onclick="setNiche('Motivacional')" class="trend-tag border-blue-500/30 text-blue-300">🏛️ Estoicismo</span>
+                    </div>
+                </div>
+
+                <div id="metricsResults" class="hidden animate-fadeIn">
+                    
+                    <!-- VidIQ Score Section -->
+                    <div class="flex items-center gap-4 bg-slate-800/50 p-4 rounded-xl mb-4 border border-slate-700">
+                        <div class="relative w-16 h-16 flex items-center justify-center">
+                            <svg class="w-full h-full transform -rotate-90">
+                                <circle cx="32" cy="32" r="28" stroke="#334155" stroke-width="4" fill="transparent"></circle>
+                                <circle id="scoreCircle" cx="32" cy="32" r="28" stroke="#4ade80" stroke-width="4" fill="transparent" stroke-dasharray="175.9" stroke-dashoffset="175.9" class="transition-all duration-1000"></circle>
+                            </svg>
+                            <span id="scoreValue" class="absolute text-lg font-bold text-white">0</span>
+                        </div>
+                        <div class="flex-1 space-y-2">
+                            <div>
+                                <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                                    <span>Volume</span>
+                                    <span id="volumeText" class="font-bold text-white">0/100</span>
+                                </div>
+                                <div class="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div id="volumeBar" class="h-full bg-blue-500 progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                                    <span>Competição</span>
+                                    <span id="competitionText" class="font-bold text-white">Baixa</span>
+                                </div>
+                                <div class="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div id="competitionBar" class="h-full bg-green-500 progress-bar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sub-nichos Detectados -->
+                    <div class="bg-slate-800/30 p-3 rounded-lg border border-slate-700/50 mb-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <i class="fas fa-microchip text-purple-400 text-xs"></i>
+                            <span class="text-[10px] font-bold text-purple-200 uppercase">Oportunidades de Sub-nicho</span>
+                        </div>
+                        <div id="subNicheTags" class="flex flex-wrap gap-2">
+                            <!-- Tags geradas via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Top Channels & Stats -->
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                            <h4 class="text-[10px] font-bold text-slate-400 uppercase mb-2">Top Canais</h4>
+                            <div id="topChannelsList" class="space-y-2">
+                                <!-- Channels injected via JS -->
+                            </div>
+                        </div>
+                        <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-800">
+                            <h4 class="text-[10px] font-bold text-slate-400 uppercase mb-2">Palavras-Chave Relacionadas</h4>
+                            <div id="relatedKeywordsList" class="flex flex-wrap gap-1">
+                                <!-- Keywords injected via JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabela -->
+                    <h4 class="text-[10px] font-bold text-slate-400 uppercase mb-2">Top Vídeos (Ranking)</h4>
+                    <div class="max-h-40 overflow-y-auto rounded border border-slate-800 scrollbar-hide">
+                        <table class="w-full text-left text-[10px] text-slate-400">
+                            <thead class="bg-slate-900 text-slate-500 sticky top-0">
+                                <tr>
+                                    <th class="p-2">Título</th>
+                                    <th class="p-2 text-right">Views/Dia</th>
+                                </tr>
+                            </thead>
+                            <tbody id="videoTableBody" class="divide-y divide-slate-800 bg-slate-900/50"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. LIVE TRENDS -->
+            <div class="glass p-5 rounded-2xl border-t-4 border-yellow-500">
+                <h3 class="font-bold text-white text-sm mb-3 flex items-center justify-between">
+                    <span><i class="fas fa-bolt mr-2 text-yellow-400"></i>Em Alta (Brasil)</span>
+                    <button onclick="scanLiveTrends()" id="btnTrends" class="text-[10px] bg-yellow-600/20 text-yellow-400 px-2 py-1 rounded hover:bg-yellow-600/40 transition">Atualizar</button>
+                </h3>
+                <div id="trendsList" class="space-y-1 max-h-40 overflow-y-auto pr-1">
+                    <p class="text-[10px] text-slate-500 italic">Clique em atualizar...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: AI LAUNCHPAD & AUDIO (6 cols) -->
+        <section class="lg:col-span-6 h-full flex flex-col gap-6">
+            
+            <!-- 1. AI LAUNCHPAD -->
+            <div class="glass rounded-2xl p-8 flex flex-col items-center justify-center text-center border-t-4 border-purple-500 relative overflow-hidden group">
+                <div class="absolute inset-0 bg-gradient-to-b from-purple-500/5 to-transparent pointer-events-none"></div>
+                <div class="absolute -top-10 -right-10 w-40 h-40 bg-purple-500/10 rounded-full blur-3xl group-hover:bg-purple-500/20 transition duration-700"></div>
+
+                <div class="relative z-10 w-full max-w-sm">
+                    <div class="mb-4 relative inline-block">
+                        <div class="absolute inset-0 bg-green-500 rounded-full blur opacity-20 status-pulse"></div>
+                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Superman" class="w-20 h-20 rounded-2xl bg-slate-800 p-2 border-2 border-green-500 shadow-xl relative z-10">
+                        <div class="absolute -bottom-2 -right-2 bg-slate-900 text-green-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-500 flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                            ATIVO
+                        </div>
+                    </div>
+                    
+                    <h2 class="text-2xl font-bold text-white mb-1">IA CONFIGURADA</h2>
+                    <p class="text-slate-400 text-sm mb-6">Gem <strong class="text-purple-400">ShortsMaster</strong> Online</p>
+
+                    <div class="space-y-3">
+                        <a href="https://gemini.google.com/gem/1usRUYNc-Ore7rhUHxAY3TyvMatqTvT8_?usp=sharing" target="_blank" 
+                           class="group relative flex items-center justify-center gap-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-purple-500/25 transition-all transform hover:scale-105 border border-purple-400/20 w-full">
+                            <i class="fas fa-file-alt text-lg"></i>
+                            <span>1. GERAR ROTEIRO (Gemini)</span>
+                        </a>
+
+                        <a href="https://www.piclumen.com/app/create/image" target="_blank" 
+                           class="group relative flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-pink-300 hover:text-white font-bold py-3 px-8 rounded-xl shadow-lg border border-pink-500/30 hover:border-pink-500 transition-all transform hover:scale-105 w-full">
+                            <i class="fas fa-image text-lg"></i>
+                            <span>2. CRIAR IMAGENS (PicLumen)</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. AUDIO STUDIO -->
+            <div class="glass p-5 rounded-2xl border-t-4 border-blue-500 flex-1 flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-bold text-white text-sm"><i class="fas fa-microphone-alt mr-2 text-blue-400"></i>Estúdio de Voz (Passo 3)</h3>
+                    <div class="flex gap-2">
+                        <a href="https://tiktokvoicegenerator.com/" target="_blank" class="text-[10px] bg-black border border-slate-700 px-2 py-1 rounded text-white flex items-center gap-1 hover:bg-slate-800 transition" title="Gerador de Voz TikTok">
+                            <i class="fab fa-tiktok"></i> TikTok
+                        </a>
+                        <a href="https://app.clipchamp.com/" target="_blank" class="text-[10px] bg-indigo-600 px-2 py-1 rounded text-white flex items-center gap-1 hover:bg-indigo-500 transition" title="Editor Clipchamp">
+                            <i class="fas fa-video"></i> Clipchamp
+                        </a>
+                        <button onclick="copyToClipboard('audioScript', this)" class="text-[10px] bg-slate-800 px-2 py-1 rounded text-white hover:bg-slate-700 transition">Copiar Texto</button>
+                    </div>
+                </div>
+                
+                <textarea id="audioScript" class="w-full flex-1 min-h-[150px] bg-slate-900 border border-slate-700 rounded-lg p-3 text-white text-xs mb-3 focus:border-blue-500 outline-none resize-none font-mono" placeholder="// Cole aqui o roteiro gerado pelo Gem Oficial para narração nativa ou uso em ferramentas externas..."></textarea>
+                
+                <div class="mt-auto space-y-2">
+                    <div class="flex gap-2 items-center">
+                        <span class="text-[10px] text-slate-500 mr-2 uppercase font-bold">Preview Nativo:</span>
+                         <select id="voiceSelect" class="bg-slate-900 border border-slate-700 rounded text-white text-[10px] p-2 flex-1 outline-none">
+                            <option value="en-US">🇺🇸 English (US)</option>
+                            <option value="pt-BR">🇧🇷 Português (Brasil)</option>
+                        </select>
+                        <button onclick="generateAudioSimple()" id="btnGenAudio" class="bg-green-600 hover:bg-green-500 text-white px-3 rounded text-xs font-bold transition flex items-center justify-center min-w-[80px]">
+                            <i class="fas fa-play mr-1"></i> Narrar
+                        </button>
+                        <button onclick="stopAudio()" class="bg-red-600 hover:bg-red-500 text-white px-3 rounded text-xs font-bold transition">
+                            <i class="fas fa-stop"></i>
+                        </button>
+                    </div>
+                    <div id="audioStatus" class="text-[10px] text-center text-slate-500 h-4"></div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <script>
+        // --- CONFIG & STORAGE (CHAVES INTEGRADAS) ---
+        const PROVIDED_YT_KEY = 'AIzaSyCFDZYJzYlmbEFecRSj5OX3CCyfHbKJ8MQ';
+        
+        let YT_KEY = localStorage.getItem('yt_api_key');
+        if (!YT_KEY) YT_KEY = PROVIDED_YT_KEY;
+
+        // Status Indicator
+        function updateSystemStatus() {
+            const statusEl = document.getElementById('systemStatus');
+            if (YT_KEY && YT_KEY.length > 20) {
+                statusEl.textContent = "Sistema Online";
+                statusEl.classList.replace('text-yellow-400', 'text-green-400');
+            } else {
+                statusEl.textContent = "Modo Demo (Verifique Keys)";
+                statusEl.classList.replace('text-green-400', 'text-yellow-400');
+            }
+        }
+        updateSystemStatus();
+
+        function showToast(text) {
+            const toast = document.getElementById("toast");
+            toast.textContent = text;
+            toast.className = "show";
+            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+        }
+
+        function formatNumber(num) { 
+            return new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(num); 
+        }
+
+        function setNiche(niche) {
+            document.getElementById('nicheInput').value = niche;
+            analyzeNiche();
+        }
+
+        // Modal Logic
+        function toggleModal(id) {
+            const modal = document.getElementById(id);
+            modal.style.display = modal.style.display === "block" ? "none" : "block";
+            if(modal.style.display === "block") {
+                document.getElementById('inputYtKey').value = YT_KEY;
+            }
+        }
+
+        function saveKeys() {
+            const yKey = document.getElementById('inputYtKey').value.trim();
+            if(yKey) localStorage.setItem('yt_api_key', yKey);
+            alert("Configurações salvas!");
+            location.reload();
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('configModal');
+            if (event.target == modal) modal.style.display = "none";
+        }
+
+        // --- 1. METRICS ENGINE (VidIQ Style) ---
+        async function analyzeNiche() {
+            const query = document.getElementById('nicheInput').value;
+            if(!query) return showToast("Digite um nicho!");
+            
+            const btn = document.getElementById('btnAnalyze');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.disabled = true;
+
+            const tbody = document.getElementById('videoTableBody');
+            tbody.innerHTML = '';
+            document.getElementById('metricsResults').classList.add('hidden');
+            document.getElementById('subNicheTags').innerHTML = '<span class="text-[10px] text-slate-500 animate-pulse">Analisando...</span>';
+
+            try {
+                // Tenta API Real Primeiro
+                const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=10&q=${query}&type=video&videoDuration=short&order=viewCount&key=${YT_KEY}`;
+                const res = await fetch(searchUrl);
+                const data = await res.json();
+                
+                if(data.error) throw new Error(data.error.message);
+                if(!data.items || data.items.length === 0) throw new Error("Nenhum vídeo encontrado.");
+
+                const ids = data.items.map(i => i.id.videoId).join(',');
+                const statsUrl = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${ids}&key=${YT_KEY}`;
+                const statsRes = await fetch(statsUrl);
+                const statsData = await statsRes.json();
+
+                const processedItems = statsData.items.map((video, idx) => ({
+                    title: data.items[idx].snippet.title,
+                    channel: data.items[idx].snippet.channelTitle,
+                    views: parseInt(video.statistics.viewCount),
+                    date: new Date(data.items[idx].snippet.publishedAt)
+                }));
+
+                processVideoData(processedItems, false, query);
+
+            } catch(e) {
+                // Fallback Mock
+                showToast("Erro API: " + e.message + " -> Usando Simulação.");
+                
+                const mockVideos = [
+                    { title: `Segredos de ${query}`, channel: "Fatos Desconhecidos", views: 2500000, date: new Date(Date.now() - 86400000 * 5) },
+                    { title: `A verdade sobre ${query}`, channel: "Ei Nerd", views: 1200000, date: new Date(Date.now() - 86400000 * 12) },
+                    { title: `${query} em 30 segundos`, channel: "Mundo Curioso", views: 800000, date: new Date(Date.now() - 86400000 * 2) },
+                    { title: `O fim de ${query}?`, channel: "Você Sabia?", views: 500000, date: new Date(Date.now() - 86400000 * 20) },
+                    { title: `Tudo sobre ${query}`, channel: "Fatos Desconhecidos", views: 300000, date: new Date(Date.now() - 86400000 * 1) }
+                ];
+                processVideoData(mockVideos, true, query);
+            } finally {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            }
+        }
+
+        function processVideoData(items, isMock, query) {
+            const tbody = document.getElementById('videoTableBody');
+            
+            let totalViews = 0;
+            let totalVPD = 0;
+            let channelsMap = {};
+            let keywordMap = {};
+            const stopWords = ['de', 'a', 'o', 'que', 'e', 'do', 'da', 'em', 'um', 'para', 'com', 'shorts'];
+
+            items.forEach((video, index) => {
+                const daysOld = Math.max((new Date() - video.date) / (1000 * 60 * 60 * 24), 1); 
+                const vpd = Math.round(video.views / daysOld);
+                
+                totalViews += video.views;
+                totalVPD += vpd;
+
+                // Channels Count
+                channelsMap[video.channel] = (channelsMap[video.channel] || 0) + 1;
+
+                // Keyword Extraction
+                video.title.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).forEach(w => {
+                    if(w.length > 3 && !stopWords.includes(w) && !query.toLowerCase().includes(w)) {
+                        keywordMap[w] = (keywordMap[w] || 0) + 1;
+                    }
+                });
+
+                if(index < 5) {
+                     tbody.innerHTML += `
+                        <tr class="border-b border-slate-800 hover:bg-slate-800 transition">
+                            <td class="p-2 truncate max-w-[150px]" title="${video.title}">${video.title}</td>
+                            <td class="p-2 text-right text-green-400 font-mono">${formatNumber(vpd)}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            // GERA SUB-NICHOS
+            generateSubNiches(items, query);
+
+            // --- VIDIQ SCORE LOGIC (Simulated) ---
+            const avgVPD = totalVPD / items.length;
+            const volumeScore = Math.min(100, Math.round((avgVPD / 10000) * 100)); // Normalize volume
+            
+            // Competition: More videos from same big channels = High Competition. 
+            // Unique channels count logic:
+            const uniqueChannels = Object.keys(channelsMap).length;
+            const channelConcentration = uniqueChannels / items.length; // 1 = Low comp (diverse), 0 = High comp (monopoly)
+            
+            let compScore = 0;
+            let compText = "Média";
+            if (channelConcentration > 0.8) { compScore = 80; compText = "Baixa"; } // Good for creators
+            else if (channelConcentration < 0.4) { compScore = 20; compText = "Muito Alta"; } // Bad for creators
+            else { compScore = 50; compText = "Média"; }
+
+            // Final Score Formula: (Volume * 0.6) + (CompetitionOpp * 0.4)
+            // Note: Low competition is GOOD, so Competition Opportunity is High.
+            const overallScore = Math.round((volumeScore * 0.6) + (compScore * 0.4));
+
+            // UPDATE UI
+            updateGauge(overallScore);
+            
+            // Volume Bar
+            document.getElementById('volumeBar').style.width = `${volumeScore}%`;
+            document.getElementById('volumeText').innerText = `${volumeScore}/100`;
+            
+            // Competition Bar (Inverted visually: Green = Low Comp/Good Opp)
+            document.getElementById('competitionBar').style.width = `${compScore}%`; // Width represents Opportunity
+            document.getElementById('competitionBar').className = `h-full progress-bar ${compScore > 60 ? 'bg-green-500' : (compScore < 40 ? 'bg-red-500' : 'bg-yellow-500')}`;
+            document.getElementById('competitionText').innerText = compText;
+
+            // Top Channels
+            const topChannelsDiv = document.getElementById('topChannelsList');
+            topChannelsDiv.innerHTML = '';
+            Object.entries(channelsMap).sort((a,b)=>b[1]-a[1]).slice(0,3).forEach(([name, count]) => {
+                topChannelsDiv.innerHTML += `
+                    <div class="flex items-center gap-2 text-xs text-slate-300">
+                        <img src="https://api.dicebear.com/7.x/initials/svg?seed=${name}" class="w-5 h-5 rounded-full">
+                        <span class="truncate">${name}</span>
+                    </div>`;
+            });
+
+            // Keywords
+            const keywordsDiv = document.getElementById('relatedKeywordsList');
+            keywordsDiv.innerHTML = '';
+            Object.entries(keywordMap).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([word, count]) => {
+                 keywordsDiv.innerHTML += `<span class="bg-slate-800 px-2 py-1 rounded text-[9px] text-slate-400 border border-slate-700">${word}</span>`;
+            });
+
+            document.getElementById('metricsResults').classList.remove('hidden');
+        }
+
+        function generateSubNiches(items, originalQuery) {
+            const stopWords = ['de', 'a', 'o', 'que', 'e', 'do', 'da', 'em', 'um', 'para', 'com', 'não', 'uma', 'os', 'no', 'se', 'na', 'por', 'mais', 'as', 'dos', 'como', 'mas', 'foi', 'ao', 'ele', 'das', 'tem', 'à', 'seu', 'sua', 'ou', 'ser', 'quando', 'muito', 'há', 'nos', 'já', 'está', 'eu', 'também', 'só', 'pelo', 'pela', 'até', 'isso', 'ela', 'entre', 'era', 'depois', 'sem', 'mesmo', 'aos', 'ter', 'seus', 'quem', 'nas', 'me', 'esse', 'eles', 'estão', 'você', 'tinha', 'foram', 'essa', 'num', 'nem', 'suas', 'meu', 'às', 'minha', 'têm', 'numa', 'pelos', 'elas', 'havia', 'seja', 'qual', 'será', 'nós', 'tenho', 'lhe', 'deles', 'essas', 'esses', 'pelas', 'este', 'fosse', 'dele', 'shorts', 'video', 'viral', '|', '#shorts', '-', 'vs'];
+            
+            const wordCount = {};
+            const queryWords = originalQuery.toLowerCase().split(' ');
+
+            items.forEach(item => {
+                // Limpa título e divide em palavras
+                const words = item.title.toLowerCase()
+                    .replace(/[^\w\sà-ú]/g, '') // Remove emojis e pontuação
+                    .split(/\s+/);
+
+                words.forEach(word => {
+                    if (word.length > 2 && !stopWords.includes(word) && !queryWords.includes(word)) {
+                        wordCount[word] = (wordCount[word] || 0) + 1;
+                    }
+                });
+            });
+
+            // Ordena por frequência
+            const sortedWords = Object.entries(wordCount)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5) // Top 5 palavras
+                .map(entry => entry[0]);
+
+            const container = document.getElementById('subNicheTags');
+            container.innerHTML = '';
+
+            if (sortedWords.length > 0) {
+                sortedWords.forEach(word => {
+                    // Capitaliza primeira letra
+                    const displayWord = word.charAt(0).toUpperCase() + word.slice(1);
+                    container.innerHTML += `<span class="bg-purple-900/40 border border-purple-500/30 text-purple-200 px-2 py-1 rounded text-[10px] font-bold">${originalQuery} + ${displayWord}</span>`;
+                });
+            } else {
+                container.innerHTML = '<span class="text-[10px] text-slate-500">Dados insuficientes para sugerir sub-nichos.</span>';
+            }
+        }
+
+        function updateGauge(score) {
+            const circle = document.getElementById('scoreCircle');
+            const value = document.getElementById('scoreValue');
+            const radius = circle.r.baseVal.value;
+            const circumference = radius * 2 * Math.PI;
+            const offset = circumference - (score / 100) * circumference;
+            
+            circle.style.strokeDashoffset = offset;
+            value.innerText = score;
+            
+            // Color logic
+            if(score >= 70) { circle.style.stroke = '#4ade80'; value.style.color = '#4ade80'; } // Green
+            else if(score >= 40) { circle.style.stroke = '#facc15'; value.style.color = '#facc15'; } // Yellow
+            else { circle.style.stroke = '#f87171'; value.style.color = '#f87171'; } // Red
+        }
+
+        async function scanLiveTrends() {
+            const list = document.getElementById('trendsList');
+            const btn = document.getElementById('btnTrends');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            list.innerHTML = '';
+
+            try {
+                const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&chart=mostPopular&regionCode=BR&maxResults=8&videoCategoryId=0&key=${YT_KEY}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.error) throw new Error(data.error.message);
+                
+                data.items.forEach(video => {
+                    list.innerHTML += `<div class="bg-slate-900/50 p-2 rounded cursor-pointer hover:bg-slate-800 border border-slate-800/50 transition truncate text-[10px] text-slate-300"><i class="fas fa-fire text-red-500 mr-1"></i> ${video.snippet.title}</div>`;
+                });
+            } catch(e) {
+                const mockTrends = ["Fatos Curiosos", "Futebol HD", "Receitas Rápidas", "Minecraft Tips"];
+                mockTrends.forEach(t => {
+                    list.innerHTML += `<div class="bg-slate-900/50 p-2 rounded cursor-pointer hover:bg-slate-800 border border-slate-800/50 transition truncate text-[10px] text-slate-300"><i class="fas fa-fire text-red-500 mr-1"></i> ${t}</div>`;
+                });
+                showToast("Erro API Trends. Mostrando simulados.");
+            } finally {
+                btn.innerHTML = 'Atualizar';
+            }
+        }
+
+        // --- 3. AUDIO STUDIO UTILS ---
+        function copyToClipboard(id, btn) {
+            const el = document.getElementById(id);
+            el.select();
+            el.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(el.value).then(() => {
+                const original = btn.innerText;
+                btn.innerText = "Copiado!";
+                btn.classList.add("bg-green-600");
+                setTimeout(() => { btn.innerText = original; btn.classList.remove("bg-green-600"); }, 2000);
+            });
+        }
+
+        // --- 4. NATIVE TEXT TO SPEECH ---
+        let speechUtterance = null;
+
+        function generateAudioSimple() {
+            const text = document.getElementById('audioScript').value;
+            if(!text) return showToast("Cole o roteiro primeiro!");
+
+            window.speechSynthesis.cancel();
+            speechUtterance = new SpeechSynthesisUtterance(text);
+            const lang = document.getElementById('voiceSelect').value;
+            speechUtterance.lang = lang;
+            speechUtterance.rate = 1.1; 
+            
+            const voices = window.speechSynthesis.getVoices();
+            const preferredVoice = voices.find(v => v.lang === lang && (v.name.includes("Google") || v.name.includes("Microsoft"))) || voices.find(v => v.lang === lang);
+            if(preferredVoice) speechUtterance.voice = preferredVoice;
+
+            const status = document.getElementById('audioStatus');
+            const btn = document.getElementById('btnGenAudio');
+            
+            speechUtterance.onstart = () => {
+                status.innerText = "🔊 Reproduzindo...";
+                status.classList.add("text-green-400");
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            };
+            speechUtterance.onend = () => {
+                status.innerText = "";
+                status.classList.remove("text-green-400");
+                btn.innerHTML = '<i class="fas fa-play mr-1"></i> Narrar';
+            };
+            speechUtterance.onerror = (e) => {
+                console.error(e);
+                status.innerText = "Erro.";
+                btn.innerHTML = '<i class="fas fa-play mr-1"></i> Narrar';
+            };
+
+            window.speechSynthesis.speak(speechUtterance);
+        }
+
+        function stopAudio() {
+            window.speechSynthesis.cancel();
+            document.getElementById('audioStatus').innerText = "";
+            document.getElementById('btnGenAudio').innerHTML = '<i class="fas fa-play mr-1"></i> Narrar';
+        }
+
+        window.speechSynthesis.getVoices();
+    </script>
+</body>
+</html>
